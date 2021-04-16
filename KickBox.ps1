@@ -1,39 +1,51 @@
 class KickBox 
 {
-    [string] $ApiKey;
+    [string] $apiKey;
 
     KickBox([string] $ApiKey)
     {
-        this.ApiKey = $ApiKey;
+        $this.apiKey = $ApiKey;
     }
 
-    static verifySingleEmail([string]$emailAddress) 
+    [object] verifySingleEmail([string] $emailAddress) 
     {
+        $inputData = @{"email" = $emailAddress};
 
+        return $this.callApi('verify', 'GET', $inputData) | ConvertFrom-Json;
     }
 
-    static verifyBulkEmail($emailAddresses)
-    {
-
+    [object] verifyBulkEmail([string[]] $emailAddresses) {
+        return this.callApi('verify-batch', 'PUT') | ConvertFrom-Json;
     }
 
-    static checkVerificationStatus([string]$jobId)
-    {
-
+    [object] checkVerificationStatus([string] $jobId) {
+        return this.callApi("verify-batch/$jobId", 'GET') | ConvertFrom-Json;
     }
 
     # Private Helpers
-    hidden callApi([string]$url, [string]$apiMethod, [string]$httpMethod, $postData)
-    {
-        $username = '5KL1URBK68NINU41LAQR2B8OH89T2FCF2EQQDRT86ZQYFXOBN18XPZ0QLV18B31O32EP81DC7I880TEC13RVOOW0MD2IAMUII87V9AB495CJ4Y1OTANU28MXOWTW2E9G';
-        $password = 'L8NK0X2A50I2J15GPP51GWEZQ7I094II8NOGZI6SBDQI09GPEWXJUSA8DUIZTAVUXKDP1AG5MBTD0EH9BUEVKQVRPE3Z95F2HT79AY975F7ZKZQV22T1S2XZPTHSY644';
-        $credPair = "$($username):$($password)"
-    
-        $encodedCredentials = [System.Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes($credPair))
-           
-        $headers = @{ Authorization = "Basic $encodedCredentials" }
+    hidden [object] callApi([string]$apiMethod, [string] $httpMethod, $inputData) {
+        $contentType = 'application/octet-stream';
+        $queryString = '';
+
+        if($httpMethod -eq 'PUT'){
+            $contentType = 'text/csv';
+        }
+
+        $headers = @{ 'Content-Type' = $contentType }
+
+        foreach($key in $inputData.Keys) {
+            $queryString = $queryString + "&" + $key + "=" + $inputData[$key]
+        }
+
+        $queryString = $queryString + "&apikey=" + $this.apiKey;
     
         [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-        $responseData = Invoke-WebRequest -Uri "$url/$apiMethod" -Method $httpMethod -Headers $headers -UseBasicParsing -Body $postData
+        return Invoke-WebRequest -Uri "https://api.kickbox.com/v2/$apiMethod\?$queryString" -Method $httpMethod -Headers $headers; # -Body $this.inputData;
     }  
 }
+
+$kickboxObject = New-Object KickBox('live_740aa12661f1a3edb6a27e0ce6fc053d5ba218e92ce7bb21c389f8e848c2c5fa');
+
+$singleVerificationResponse = $kickboxObject.verifySingleEmail('brandon.osborne@coderpro.net');
+
+Write-Output('test')
